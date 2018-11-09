@@ -1493,6 +1493,39 @@ _mongoc_cluster_auth_node (
    RETURN (ret);
 }
 
+static bool
+_mongoc_cluster_disconnect_node_in_set (uint32_t id, void *item, void *ctx)
+{
+   mongoc_cluster_node_t *node = (mongoc_cluster_node_t *) item;
+   mongoc_cluster_t *cluster = (mongoc_cluster_t *) ctx;
+
+   mongoc_cluster_disconnect_node (cluster, id, false, NULL);
+
+   return true;
+}
+
+/*
+ *--------------------------------------------------------------------------
+ *
+ * mongoc_cluster_disconnect --
+ *
+ *       Disconnects all nodes in this cluster.
+ *
+ * Returns:
+ *       None.
+ *
+ * Side effects:
+ *       Clears the cluster's set of nodes and frees them if pooled.
+ *
+ *--------------------------------------------------------------------------
+ */
+
+void
+mongoc_cluster_disconnect (mongoc_cluster_t *cluster)
+{
+   mongoc_set_for_each_with_id (
+      cluster->nodes, _mongoc_cluster_disconnect_node_in_set, cluster);
+}
 
 /*
  *--------------------------------------------------------------------------
