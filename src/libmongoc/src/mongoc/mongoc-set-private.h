@@ -47,6 +47,9 @@ typedef struct {
 mongoc_set_t *
 mongoc_set_new (size_t nitems, mongoc_set_item_dtor dtor, void *dtor_ctx);
 
+size_t
+mongoc_set_size (mongoc_set_t *set);
+
 void
 mongoc_set_add (mongoc_set_t *set, uint32_t id, void *item);
 

@@ -67,6 +67,8 @@ mongoc_client_pool_set_error_api (mongoc_client_pool_t *pool, int32_t version);
 MONGOC_EXPORT (bool)
 mongoc_client_pool_set_appname (mongoc_client_pool_t *pool,
                                 const char *appname);
+MONGOC_EXPORT (void)
+mongoc_client_pool_reset (mongoc_client_pool_t *pool);
 BSON_END_DECLS
 
 

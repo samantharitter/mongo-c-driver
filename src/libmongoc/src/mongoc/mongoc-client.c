@@ -2813,6 +2813,14 @@ mongoc_client_reset (mongoc_client_t *client)
    BSON_ASSERT (client);
    BSON_ASSERT (client->topology->single_threaded);
 
+   _mongoc_client_reset (client);
+}
+
+void
+_mongoc_client_reset (mongoc_client_t *client)
+{
+   BSON_ASSERT (client);
+
    client->generation++;
 
    mongoc_set_destroy (client->client_sessions);
