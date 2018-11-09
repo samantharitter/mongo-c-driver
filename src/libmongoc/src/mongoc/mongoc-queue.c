@@ -137,3 +137,40 @@ _mongoc_queue_get_length (const mongoc_queue_t *queue)
 
    return queue->length;
 }
+
+/*
+ *--------------------------------------------------------------------------
+ *
+ * _mongoc_queue_for_each --
+ *
+ *      Beginning at the queue's head, walks the queue and calls
+ *      _mongoc_queue_for_each_cb_t for each item. Callback may NOT
+ *      remove items from the queue.
+ *
+ * Returns:
+ *      Nothing.
+ *
+ * Side effects:
+ *      May modify elements in the queue, but not their order.
+ *
+ *--------------------------------------------------------------------------
+ */
+void
+_mongoc_queue_for_each (mongoc_queue_t *queue,
+                        _mongoc_queue_for_each_cb_t cb,
+                        void *ctx)
+{
+   mongoc_queue_item_t *item;
+   bool result;
+
+   BSON_ASSERT (queue);
+
+   item = queue->head;
+
+   while (item) {
+      if (!cb (item->data, ctx)) {
+         break;
+      }
+      item = item->next;
+   }
+}
