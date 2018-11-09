@@ -36,6 +36,8 @@ BSON_BEGIN_DECLS
 typedef struct _mongoc_queue_t mongoc_queue_t;
 typedef struct _mongoc_queue_item_t mongoc_queue_item_t;
 
+/* return true to continue iteration, false to stop */
+typedef bool (*_mongoc_queue_for_each_cb_t) (void *item, void *ctx);
 
 struct _mongoc_queue_t {
    mongoc_queue_item_t *head;
@@ -62,7 +64,10 @@ void
 _mongoc_queue_push_tail (mongoc_queue_t *queue, void *data);
 uint32_t
 _mongoc_queue_get_length (const mongoc_queue_t *queue);
-
+void
+_mongoc_queue_for_each (mongoc_queue_t *queue,
+                        _mongoc_queue_for_each_cb_t cb,
+                        void *ctx);
 
 BSON_END_DECLS
 
