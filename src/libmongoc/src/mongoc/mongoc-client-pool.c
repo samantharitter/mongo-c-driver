@@ -30,27 +30,6 @@
 #include "mongoc/mongoc-ssl-private.h"
 #endif
 
-struct _mongoc_client_pool_t {
-   bson_mutex_t mutex;
-   mongoc_cond_t cond;
-   mongoc_queue_t queue;
-   mongoc_topology_t *topology;
-   mongoc_uri_t *uri;
-   uint32_t min_pool_size;
-   uint32_t max_pool_size;
-   uint32_t size;
-#ifdef MONGOC_ENABLE_SSL
-   bool ssl_opts_set;
-   mongoc_ssl_opt_t ssl_opts;
-#endif
-   bool apm_callbacks_set;
-   mongoc_apm_callbacks_t apm_callbacks;
-   void *apm_context;
-   int32_t error_api_version;
-   bool error_api_set;
-};
-
-
 #ifdef MONGOC_ENABLE_SSL
 void
 mongoc_client_pool_set_ssl_opts (mongoc_client_pool_t *pool,
@@ -223,6 +202,7 @@ again:
    if (!(client = (mongoc_client_t *) _mongoc_queue_pop_head (&pool->queue))) {
       if (pool->size < pool->max_pool_size) {
          client = _mongoc_client_new_from_uri (pool->topology);
+         client->pool_generation = pool->generation;
 
          /* for tests */
          mongoc_client_set_stream_initiator (
@@ -266,6 +246,7 @@ mongoc_client_pool_try_pop (mongoc_client_pool_t *pool)
    if (!(client = (mongoc_client_t *) _mongoc_queue_pop_head (&pool->queue))) {
       if (pool->size < pool->max_pool_size) {
          client = _mongoc_client_new_from_uri (pool->topology);
+         client->pool_generation = pool->generation;
 #ifdef MONGOC_ENABLE_SSL
          if (pool->ssl_opts_set) {
             mongoc_client_set_ssl_opts (client, &pool->ssl_opts);
@@ -293,6 +274,12 @@ mongoc_client_pool_push (mongoc_client_pool_t *pool, mongoc_client_t *client)
    BSON_ASSERT (client);
 
    bson_mutex_lock (&pool->mutex);
+
+   if (pool->generation != client->pool_generation) {
+      _mongoc_client_reset (client);
+      client->pool_generation = pool->generation;
+   }
+
    _mongoc_queue_push_head (&pool->queue, client);
 
    if (pool->min_pool_size &&
@@ -450,4 +437,30 @@ mongoc_client_pool_set_appname (mongoc_client_pool_t *pool, const char *appname)
    bson_mutex_unlock (&pool->mutex);
 
    return ret;
+}
+
+
+static bool
+_mongoc_client_pool_reset_client (void *item, void *ctx)
+{
+   mongoc_client_t *client = (mongoc_client_t *) item;
+   mongoc_client_pool_t *pool = (mongoc_client_pool_t *) ctx;
+
+   _mongoc_client_reset (client);
+   client->pool_generation = pool->generation;
+
+   return true;
+}
+
+
+void
+mongoc_client_pool_reset (mongoc_client_pool_t *pool)
+{
+   bson_mutex_lock (&(pool->mutex));
+
+   pool->generation++;
+   _mongoc_queue_for_each (
+      &(pool->queue), _mongoc_client_pool_reset_client, pool);
+
+   bson_mutex_unlock (&(pool->mutex));
 }

@@ -1,5 +1,8 @@
 #include <mongoc/mongoc.h>
+
+#include "mongoc/mongoc-client-private.h"
 #include "mongoc/mongoc-client-pool-private.h"
+#include "mongoc/mongoc-set-private.h"
 #include "mongoc/mongoc-util-private.h"
 
 
@@ -232,6 +235,84 @@ test_mongoc_client_pool_ssl_disabled (void)
 }
 #endif
 
+static bool
+_assert_node_is_disconnected (uint32_t id, void *item, void *ctx)
+{
+   mongoc_cluster_t *cluster = (mongoc_cluster_t *) ctx;
+
+   mongoc_server_stream_t *stream =
+      mongoc_cluster_fetch_stream_single (cluster, id, false, NULL);
+
+   ASSERT (!stream);
+
+   return true;
+}
+
+static void
+test_mongoc_client_pool_reset (void)
+{
+   mongoc_uri_t *uri;
+   mongoc_client_t *client1;
+   mongoc_client_t *client2;
+   mongoc_client_pool_t *pool;
+   mongoc_client_session_t *session1;
+   mongoc_client_session_t *session2;
+   bson_error_t error;
+
+   uri = mongoc_uri_new ("mongodb://127.0.0.1/?maxpoolsize=2");
+   pool = mongoc_client_pool_new (uri);
+
+   client1 = mongoc_client_pool_pop (pool);
+   client2 = mongoc_client_pool_pop (pool);
+
+   ASSERT (client1->pool_generation == pool->generation);
+   ASSERT (client2->pool_generation == pool->generation);
+
+   /* Test that clients outside of the pool do not get reset until they
+      are checked back into the pool */
+   session1 = mongoc_client_start_session (client1, NULL, &error);
+   ASSERT (mongoc_set_size (client1->client_sessions) == 1);
+
+   mongoc_client_pool_reset (pool);
+   ASSERT (mongoc_set_size (client1->client_sessions) == 1);
+   ASSERT (client1->pool_generation != pool->generation);
+
+   mongoc_client_pool_push (pool, client1);
+   client1 = mongoc_client_pool_pop (pool);
+
+   ASSERT (mongoc_set_size (client1->client_sessions) == 0);
+   ASSERT (client1->pool_generation == pool->generation);
+   mongoc_set_for_each_with_id (
+      client1->cluster.nodes, _assert_node_is_disconnected, NULL);
+
+   /* Test that clients in the pool when it resets also get reset */
+   session1 = mongoc_client_start_session (client1, NULL, &error);
+   ASSERT (session1);
+   ASSERT (mongoc_set_size (client1->client_sessions) == 1);
+
+   session2 = mongoc_client_start_session (client2, NULL, &error);
+   ASSERT (session2);
+   ASSERT (mongoc_set_size (client2->client_sessions) == 1);
+
+   mongoc_client_pool_push (pool, client1);
+   mongoc_client_pool_push (pool, client2);
+
+   mongoc_client_pool_reset (pool);
+
+   client1 = mongoc_client_pool_pop (pool);
+   ASSERT (mongoc_set_size (client1->client_sessions) == 0);
+   ASSERT (client1->pool_generation == pool->generation);
+   client2 = mongoc_client_pool_pop (pool);
+   ASSERT (mongoc_set_size (client2->client_sessions) == 0);
+   ASSERT (client2->pool_generation == pool->generation);
+
+   mongoc_client_pool_push (pool, client1);
+   mongoc_client_pool_push (pool, client2);
+
+   mongoc_uri_destroy (uri);
+   mongoc_client_pool_destroy (pool);
+}
+
 static void
 test_mongoc_client_pool_handshake (void)
 {
@@ -298,6 +379,8 @@ test_client_pool_install (TestSuite *suite)
       suite, "/ClientPool/set_max_size", test_mongoc_client_pool_set_max_size);
    TestSuite_Add (
       suite, "/ClientPool/set_min_size", test_mongoc_client_pool_set_min_size);
+
+   TestSuite_Add (suite, "/ClientPool/reset", test_mongoc_client_pool_reset);
 
    TestSuite_Add (
       suite, "/ClientPool/handshake", test_mongoc_client_pool_handshake);

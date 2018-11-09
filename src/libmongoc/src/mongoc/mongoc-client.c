@@ -2823,6 +2823,14 @@ mongoc_client_reset (mongoc_client_t *client)
 {
    BSON_ASSERT (client);
 
+   _mongoc_client_reset (client);
+}
+
+void
+_mongoc_client_reset (mongoc_client_t *client)
+{
+   BSON_ASSERT (client);
+
    client->generation++;
 
    mongoc_set_for_each (

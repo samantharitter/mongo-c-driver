@@ -38,6 +38,13 @@ mongoc_set_new (size_t nitems, mongoc_set_item_dtor dtor, void *dtor_ctx)
    return set;
 }
 
+size_t
+mongoc_set_size (mongoc_set_t *set)
+{
+   BSON_ASSERT (set);
+   return set->items_len;
+}
+
 static int
 mongoc_set_id_cmp (const void *a_, const void *b_)
 {

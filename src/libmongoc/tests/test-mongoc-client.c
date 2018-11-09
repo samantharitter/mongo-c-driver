@@ -3499,19 +3499,6 @@ test_client_reset_cursors (void)
    mock_server_destroy (server);
 }
 
-static bool
-_assert_node_is_disconnected (uint32_t id, void *item, void *ctx)
-{
-   mongoc_cluster_t *cluster = (mongoc_cluster_t *) ctx;
-
-   mongoc_server_stream_t *stream =
-      mongoc_cluster_fetch_stream_single (cluster, id, false, NULL);
-
-   ASSERT (!stream);
-
-   return true;
-}
-
 static void
 test_client_reset_connections (void)
 {

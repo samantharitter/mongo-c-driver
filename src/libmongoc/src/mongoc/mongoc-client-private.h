@@ -95,6 +95,7 @@ struct _mongoc_client_t {
    unsigned int csid_rand_seed;
 
    uint32_t generation;
+   uint32_t pool_generation;
 };
 
 /* Defines whether _mongoc_client_command_with_opts() is acting as a read
@@ -186,6 +187,9 @@ _mongoc_client_push_server_session (mongoc_client_t *client,
                                     mongoc_server_session_t *server_session);
 void
 _mongoc_client_end_sessions (mongoc_client_t *client);
+
+void
+_mongoc_client_reset (mongoc_client_t *client);
 BSON_END_DECLS
 
 #endif /* MONGOC_CLIENT_PRIVATE_H */
