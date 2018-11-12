@@ -48,14 +48,7 @@ check_json_sdam_events (const bson_t *events, const bson_t *expectations)
                   actual_keys);
    }
 
-   if (!match_bson_with_ctx (events, expectations, &match_ctx)) {
-      test_error ("SDAM test failed expectations:\n\n"
-                  "%s\n\n"
-                  "events:\n%s\n\n%s",
-                  bson_as_canonical_extended_json (expectations, NULL),
-                  bson_as_canonical_extended_json (events, NULL),
-                  match_ctx.errmsg);
-   }
+   assert_bson_match_with_ctx (events, expectations, &match_ctx);
 }
 
 

@@ -136,24 +136,24 @@ typedef struct _match_ctx_t {
    bool is_command;
 } match_ctx_t;
 
-bool
-match_bson (const bson_t *doc, const bson_t *pattern, bool is_command);
+void
+assert_bson_match (const bson_t *doc, const bson_t *pattern, bool is_command);
 
 int64_t
 bson_value_as_int64 (const bson_value_t *value);
 
-bool
-match_bson_value (const bson_value_t *doc,
+void
+assert_bson_match_value (const bson_value_t *doc,
                   const bson_value_t *pattern,
                   match_ctx_t *ctx);
 
-bool
-match_bson_with_ctx (const bson_t *doc,
+void
+assert_bson_match_with_ctx (const bson_t *doc,
                      const bson_t *pattern,
                      match_ctx_t *ctx);
 
-bool
-match_json (const bson_t *doc,
+void
+assert_json_match (const bson_t *doc,
             bool is_command,
             const char *filename,
             int lineno,
@@ -163,8 +163,7 @@ match_json (const bson_t *doc,
 
 #define ASSERT_MATCH(doc, ...)                                                 \
    do {                                                                        \
-      BSON_ASSERT (                                                            \
-         match_json (doc, false, __FILE__, __LINE__, BSON_FUNC, __VA_ARGS__)); \
+      assert_json_match (doc, false, __FILE__, __LINE__, BSON_FUNC, __VA_ARGS__); \
    } while (0)
 
 bool

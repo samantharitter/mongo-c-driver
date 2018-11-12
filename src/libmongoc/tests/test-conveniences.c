@@ -588,25 +588,25 @@ single_quotes_to_double (const char *str)
 
 /*--------------------------------------------------------------------------
  *
- * match_json --
+ * assert_json_match --
  *
- *       Call match_bson on "doc" and "json_pattern".
+ *       Call assert_bson_match on "doc" and "json_pattern".
  *       For convenience, single-quotes are synonymous with double-quotes.
  *
  *       A NULL doc or NULL json_pattern means "{}".
  *
  * Returns:
- *       True or false.
+ *       Nothing.
  *
  * Side effects:
- *       Logs if no match.
+ *       Aborts if no match.
  *
  *--------------------------------------------------------------------------
  */
 
 MONGOC_PRINTF_FORMAT (6, 7)
-bool
-match_json (const bson_t *doc,
+void
+assert_json_match (const bson_t *doc,
             bool is_command,
             const char *filename,
             int lineno,
@@ -639,56 +639,41 @@ match_json (const bson_t *doc,
    ctx.errmsg = errmsg;
    ctx.errmsg_len = sizeof errmsg;
    ctx.is_command = is_command;
-   matches = match_bson_with_ctx (doc, pattern, &ctx);
-
-   if (!matches) {
-      fprintf (stderr,
-               "ASSERT_MATCH failed with document:\n\n"
-               "%s\n"
-               "pattern:\n%s\n"
-               "%s\n"
-               "%s:%d %s()\n",
-               doc ? bson_as_canonical_extended_json (doc, NULL) : "{}",
-               double_quoted,
-               ctx.errmsg,
-               filename,
-               lineno,
-               funcname);
-   }
+   assert_bson_match_with_ctx (doc, pattern, &ctx);
 
    bson_destroy (pattern);
    bson_free (json_pattern_formatted);
    bson_free (double_quoted);
 
-   return matches;
+   return;
 }
 
 
 /*--------------------------------------------------------------------------
  *
- * match_bson --
+ * assert_bson_match --
  *
- *       Does "doc" match "pattern"?
+ *       Assert that "doc" matches "pattern".
  *
- *       See match_bson_with_ctx for details.
+ *       See assert_bson_match_with_ctx for details.
  *
  * Returns:
- *       True or false.
+ *       Nothing.
  *
  * Side effects:
- *       None.
+ *       Aborts if there is no match.
  *
  *--------------------------------------------------------------------------
  */
 
-bool
-match_bson (const bson_t *doc, const bson_t *pattern, bool is_command)
+void
+assert_bson_match (const bson_t *doc, const bson_t *pattern, bool is_command)
 {
    match_ctx_t ctx = {0};
 
    ctx.strict_numeric_types = true;
    ctx.is_command = is_command;
-   return match_bson_with_ctx (doc, pattern, &ctx);
+   assert_bson_match_with_ctx (doc, pattern, &ctx);
 }
 
 
@@ -706,7 +691,7 @@ match_err (match_ctx_t *ctx, const char *fmt, ...)
    va_end (args);
 
    if (ctx->errmsg) {
-      bson_snprintf (
+      test_error (
          ctx->errmsg, ctx->errmsg_len, "%s: %s", ctx->path, formatted);
    } else {
       test_error ("%s: %s", ctx->path, formatted);
@@ -745,9 +730,9 @@ derive (match_ctx_t *ctx, match_ctx_t *derived, const char *key)
 
 /*--------------------------------------------------------------------------
  *
- * match_bson_with_ctx --
+ * assert_bson_match_with_ctx --
  *
- *       Does "doc" match "pattern"?
+ *       Assert that "doc" matches "pattern".
  *
  *       mongoc_matcher_t prohibits $-prefixed keys, which is something
  *       we need to test in e.g. test_mongoc_client_read_prefs, so this
@@ -766,16 +751,16 @@ derive (match_ctx_t *ctx, match_ctx_t *derived, const char *key)
  *       A NULL doc or NULL pattern means "{}".
  *
  * Returns:
- *       True or false.
+ *       Nothing.
  *
  * Side effects:
- *       None.
+ *       Aborts if there is no match.
  *
  *--------------------------------------------------------------------------
  */
 
-bool
-match_bson_with_ctx (const bson_t *doc, const bson_t *pattern, match_ctx_t *ctx)
+void
+assert_bson_match_with_ctx (const bson_t *doc, const bson_t *pattern, match_ctx_t *ctx)
 {
    bson_iter_t pattern_iter;
    const char *key;
@@ -792,13 +777,13 @@ match_bson_with_ctx (const bson_t *doc, const bson_t *pattern, match_ctx_t *ctx)
 
    if (bson_empty0 (pattern)) {
       /* matches anything */
-      return true;
+      return;
    }
 
    if (bson_empty0 (doc)) {
       /* non-empty pattern can't match doc */
       match_err (ctx, "doc empty");
-      return false;
+      return;
    }
 
    BSON_ASSERT (bson_iter_init (&pattern_iter, pattern));
@@ -853,8 +838,8 @@ match_bson_with_ctx (const bson_t *doc, const bson_t *pattern, match_ctx_t *ctx)
             match_err (&derived, "%s found", empty ? "" : " not");
             goto fail;
          }
-      } else if (!match_bson_value (&doc_value, value, &derived)) {
-         goto fail;
+      } else {
+	 assert_bson_match_value (&doc_value, value, &derived);
       }
 
    next:
@@ -864,14 +849,14 @@ match_bson_with_ctx (const bson_t *doc, const bson_t *pattern, match_ctx_t *ctx)
       }
    }
 
-   return true;
+   return;
 
 fail:
    if (found) {
       bson_value_destroy (&doc_value);
    }
 
-   return false;
+   return;
 }
 
 
@@ -1031,8 +1016,8 @@ is_empty_doc_or_array (const bson_value_t *value)
 }
 
 
-static bool
-match_bson_arrays (const bson_t *array, const bson_t *pattern, match_ctx_t *ctx)
+static void
+assert_bson_match_arrays (const bson_t *array, const bson_t *pattern, match_ctx_t *ctx)
 {
    uint32_t array_count;
    uint32_t pattern_count;
@@ -1050,7 +1035,7 @@ match_bson_arrays (const bson_t *array, const bson_t *pattern, match_ctx_t *ctx)
                  "expected %" PRIu32 " keys, not %" PRIu32,
                  pattern_count,
                  array_count);
-      return false;
+      return;
    }
 
    BSON_ASSERT (bson_iter_init (&array_iter, array));
@@ -1063,12 +1048,10 @@ match_bson_arrays (const bson_t *array, const bson_t *pattern, match_ctx_t *ctx)
 
       derive (ctx, &derived, bson_iter_key (&array_iter));
 
-      if (!match_bson_value (array_value, pattern_value, &derived)) {
-         return false;
-      }
+      assert_bson_match_value (array_value, pattern_value, &derived);
    }
 
-   return true;
+   return;
 }
 
 
@@ -1100,8 +1083,8 @@ bson_value_as_int64 (const bson_value_t *value)
 }
 
 
-bool
-match_bson_value (const bson_value_t *doc,
+void
+assert_bson_match_value (const bson_value_t *doc,
                   const bson_value_t *pattern,
                   match_ctx_t *ctx)
 {
@@ -1123,7 +1106,7 @@ match_bson_value (const bson_value_t *doc,
          is_placeholder = true;
       }
       if (is_placeholder) {
-         return true;
+         return;
       }
    }
 
@@ -1137,10 +1120,10 @@ match_bson_value (const bson_value_t *doc,
                     "expected %" PRId64 ", got %" PRId64,
                     pattern_int64,
                     doc_int64);
-         return false;
+         return;
       }
 
-      return true;
+      return;
    }
 
    if (doc->value_type != pattern->value_type) {
@@ -1148,7 +1131,7 @@ match_bson_value (const bson_value_t *doc,
                  "expected type %s, got %s",
                  _mongoc_bson_type_to_str (pattern->value_type),
                  _mongoc_bson_type_to_str (doc->value_type));
-      return false;
+      return;
    }
 
    switch (doc->value_type) {
@@ -1156,24 +1139,26 @@ match_bson_value (const bson_value_t *doc,
    case BSON_TYPE_DOCUMENT:
 
       if (!bson_init_from_value (&subdoc, doc)) {
-         return false;
+	 fprintf (stderr, "could not initialize document");
+	 abort();
       }
 
       if (!bson_init_from_value (&pattern_subdoc, pattern)) {
          bson_destroy (&subdoc);
-         return false;
+	 fprintf (stderr, "could not initialize pattern");
+         abort();
       }
 
       if (doc->value_type == BSON_TYPE_ARRAY) {
-         ret = match_bson_arrays (&subdoc, &pattern_subdoc, ctx);
+         assert_bson_match_arrays (&subdoc, &pattern_subdoc, ctx);
       } else {
-         ret = match_bson_with_ctx (&subdoc, &pattern_subdoc, ctx);
+         assert_bson_match_with_ctx (&subdoc, &pattern_subdoc, ctx);
       }
 
       bson_destroy (&subdoc);
       bson_destroy (&pattern_subdoc);
 
-      return ret;
+      return;
 
    case BSON_TYPE_BINARY:
       ret = doc->value.v_binary.data_len == pattern->value.v_binary.data_len &&
@@ -1192,7 +1177,7 @@ match_bson_value (const bson_value_t *doc,
                     doc->value.v_bool);
       }
 
-      return ret;
+      return;
 
    case BSON_TYPE_CODE:
       ret = doc->value.v_code.code_len == pattern->value.v_code.code_len &&
@@ -1226,7 +1211,7 @@ match_bson_value (const bson_value_t *doc,
                     doc->value.v_datetime);
       }
 
-      return ret;
+      return;
 
    case BSON_TYPE_DOUBLE:
       ret = doc->value.v_double == pattern->value.v_double;
@@ -1238,7 +1223,7 @@ match_bson_value (const bson_value_t *doc,
                     doc->value.v_double);
       }
 
-      return ret;
+      return;
 
    case BSON_TYPE_INT32:
       ret = doc->value.v_int32 == pattern->value.v_int32;
@@ -1250,7 +1235,7 @@ match_bson_value (const bson_value_t *doc,
                     doc->value.v_int32);
       }
 
-      return ret;
+      return;
 
    case BSON_TYPE_INT64:
       ret = doc->value.v_int64 == pattern->value.v_int64;
@@ -1262,7 +1247,7 @@ match_bson_value (const bson_value_t *doc,
                     doc->value.v_int64);
       }
 
-      return ret;
+      return;
 
    case BSON_TYPE_OID:
       ret = bson_oid_equal (&doc->value.v_oid, &pattern->value.v_oid);
@@ -1304,7 +1289,7 @@ match_bson_value (const bson_value_t *doc,
                     doc->value.v_utf8.str);
       }
 
-      return ret;
+      return;
 
 
    /* these are empty types, if "a" and "b" are the same type they're equal */
@@ -1313,7 +1298,7 @@ match_bson_value (const bson_value_t *doc,
    case BSON_TYPE_MINKEY:
    case BSON_TYPE_NULL:
    case BSON_TYPE_UNDEFINED:
-      return true;
+      return;
 
    case BSON_TYPE_DBPOINTER:
       test_error ("DBPointer comparison not implemented");
@@ -1334,7 +1319,7 @@ match_bson_value (const bson_value_t *doc,
                  _mongoc_bson_type_to_str (pattern->value_type));
    }
 
-   return ret;
+   return;
 }
 
 bool
@@ -1470,9 +1455,8 @@ match_in_array (const bson_t *doc, const bson_t *array, match_ctx_t *ctx)
       ASSERT (BSON_ITER_HOLDS_DOCUMENT (&array_iter));
       bson_iter_bson (&array_iter, &array_elem);
 
-      if (match_bson_with_ctx (&array_elem, doc, ctx)) {
-         found = true;
-      }
+      assert_bson_match_with_ctx (&array_elem, doc, ctx);
+      found = true;
 
       bson_destroy (&array_elem);
    }

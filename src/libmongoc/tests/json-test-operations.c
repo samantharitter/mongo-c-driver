@@ -548,15 +548,7 @@ check_result (const bson_t *test,
                            error);
 
    BSON_ASSERT (result);
-   if (!match_bson_value (result, &expected_value, &ctx)) {
-      test_error ("Error in \"%s\" test %s\n"
-                  "Expected:\n%s\nActual:\n%s",
-                  bson_lookup_utf8 (test, "description"),
-                  ctx.errmsg,
-                  value_to_str (&expected_value),
-                  value_to_str (result));
-   }
-
+   assert_bson_match_value (result, &expected_value, &ctx);
    bson_value_destroy (&expected_value);
 }
 

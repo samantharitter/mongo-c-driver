@@ -1848,7 +1848,7 @@ _test_cursor_n_return_find_cmd (mongoc_cursor_t *cursor,
    request =
       mock_server_receives_command (server, "db", MONGOC_QUERY_SLAVE_OK, NULL);
 
-   ASSERT (match_bson (request_get_doc (request, 0), &find_cmd, true));
+   assert_bson_match (request_get_doc (request, 0), &find_cmd, true);
 
    reply = bson_string_new (NULL);
    _make_reply_batch (reply, (uint32_t) test->reply_length[0], true, false);
@@ -1881,7 +1881,7 @@ _test_cursor_n_return_find_cmd (mongoc_cursor_t *cursor,
             &getmore_cmd, "batchSize", tmp_bson ("{'$exists': false}"));
       }
 
-      ASSERT (match_bson (request_get_doc (request, 0), &getmore_cmd, true));
+      assert_bson_match (request_get_doc (request, 0), &getmore_cmd, true);
 
       reply = bson_string_new (NULL);
       cursor_finished = (reply_no == 2);

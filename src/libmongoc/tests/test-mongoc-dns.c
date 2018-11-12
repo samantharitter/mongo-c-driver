@@ -56,17 +56,7 @@ _assert_options_match (const bson_t *test, mongoc_client_t *client)
 
       test_value = bson_iter_value (&test_opts_iter);
       uri_value = bson_iter_value (&uri_opts_iter);
-      if (!match_bson_value (uri_value, test_value, &ctx)) {
-         fprintf (stderr,
-                  "URI option \"%s\" incorrectly set from TXT record: %s\n"
-                  "expected: %s\n"
-                  "actual: %s\n",
-                  opt_name,
-                  ctx.errmsg,
-                  bson_as_json (&opts_from_test, NULL),
-                  bson_as_json (opts_from_uri, NULL));
-         abort ();
-      }
+      assert_bson_match_value (uri_value, test_value, &ctx);
    }
 }
 

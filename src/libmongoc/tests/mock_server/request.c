@@ -183,11 +183,7 @@ request_matches_query (const request_t *request,
       doc_as_json = NULL;
    }
 
-   if (!match_json (
-          doc, is_command, __FILE__, __LINE__, BSON_FUNC, query_json)) {
-      /* match_json has logged the err */
-      goto done;
-   }
+   assert_json_match (doc, is_command, __FILE__, __LINE__, BSON_FUNC, query_json);
 
    if (request->docs.len > 1) {
       doc2 = request_get_doc (request, 1);
@@ -195,10 +191,7 @@ request_matches_query (const request_t *request,
       doc2 = NULL;
    }
 
-   if (!match_json (doc2, false, __FILE__, __LINE__, BSON_FUNC, fields_json)) {
-      /* match_json has logged the err */
-      goto done;
-   }
+   assert_json_match (doc2, false, __FILE__, __LINE__, BSON_FUNC, fields_json);
 
    if (request->is_command && !is_command) {
       test_error ("expected query, got command: %s", doc_as_json);
@@ -296,9 +289,7 @@ request_matches_insert (const request_t *request,
 
    ASSERT_CMPINT ((int) request->docs.len, ==, 1);
    doc = request_get_doc (request, 0);
-   if (!match_json (doc, false, __FILE__, __LINE__, BSON_FUNC, doc_json)) {
-      return false;
-   }
+   assert_json_match (doc, false, __FILE__, __LINE__, BSON_FUNC, doc_json);
 
    return true;
 }
@@ -382,14 +373,10 @@ request_matches_update (const request_t *request,
 
    ASSERT_CMPINT ((int) request->docs.len, ==, 2);
    doc = request_get_doc (request, 0);
-   if (!match_json (doc, false, __FILE__, __LINE__, BSON_FUNC, selector_json)) {
-      return false;
-   }
+   assert_json_match (doc, false, __FILE__, __LINE__, BSON_FUNC, selector_json);
 
    doc = request_get_doc (request, 1);
-   if (!match_json (doc, false, __FILE__, __LINE__, BSON_FUNC, update_json)) {
-      return false;
-   }
+   assert_json_match (doc, false, __FILE__, __LINE__, BSON_FUNC, update_json);
 
    return true;
 }
@@ -430,9 +417,7 @@ request_matches_delete (const request_t *request,
 
    ASSERT_CMPINT ((int) request->docs.len, ==, 1);
    doc = request_get_doc (request, 0);
-   if (!match_json (doc, false, __FILE__, __LINE__, BSON_FUNC, selector_json)) {
-      return false;
-   }
+   assert_json_match (doc, false, __FILE__, __LINE__, BSON_FUNC, selector_json);
 
    return true;
 }
@@ -569,7 +554,7 @@ request_matches_msg (const request_t *request,
       doc = request_get_doc (request, i);
       /* pass is_command=true for first doc, including "find" command */
       is_command_doc = (i == 0);
-      BSON_ASSERT (match_bson (doc, pattern, is_command_doc));
+      assert_bson_match (doc, pattern, is_command_doc);
    }
 
    if (n_docs < request->docs.len) {

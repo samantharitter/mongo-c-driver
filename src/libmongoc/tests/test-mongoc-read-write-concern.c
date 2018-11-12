@@ -216,13 +216,13 @@ test_rw_concern_document (bson_t *scenario)
       if (bson_has_field (&test, "readConcernDocument")) {
          bson_lookup_doc (&test, "readConcernDocument", &rc_doc_correct);
          rc_doc_result = _mongoc_read_concern_get_bson (rc);
-         match_bson (&rc_doc_correct, rc_doc_result, false /* is_command */);
+         assert_bson_match (&rc_doc_correct, rc_doc_result, false /* is_command */);
       }
 
       if (bson_has_field (&test, "writeConcernDocument")) {
          bson_lookup_doc (&test, "writeConcernDocument", &wc_doc_correct);
          wc_doc_result = _mongoc_write_concern_get_bson (wc);
-         match_bson (&wc_doc_correct, wc_doc_result, false);
+         assert_bson_match (&wc_doc_correct, wc_doc_result, false);
       }
 
       mongoc_write_concern_destroy (wc);

@@ -1276,7 +1276,7 @@ _resume_at_optime_started (const mongoc_apm_command_started_t *event)
                          "pipeline.0.$changeStream.startAtOperationTime",
                          &sent_optime);
       BSON_ASSERT (replied_optime.value_type == BSON_TYPE_TIMESTAMP);
-      BSON_ASSERT (match_bson_value (&sent_optime, &replied_optime, NULL));
+      assert_bson_match_value (&sent_optime, &replied_optime, NULL);
       bson_value_destroy (&sent_optime);
       bson_value_destroy (&replied_optime);
    }

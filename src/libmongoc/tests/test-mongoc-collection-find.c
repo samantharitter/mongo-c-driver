@@ -87,12 +87,12 @@ _check_cursor (mongoc_cursor_t *cursor, test_collection_find_t *test_data)
       abort ();
    }
 
-   ASSERT (match_json (&actual_result,
-                       false /* is_command */,
-                       test_data->filename,
-                       test_data->lineno,
-                       test_data->funcname,
-                       test_data->expected_result));
+   assert_json_match (&actual_result,
+		      false /* is_command */,
+		      test_data->filename,
+		      test_data->lineno,
+		      test_data->funcname,
+		      test_data->expected_result);
 
    bson_destroy (&actual_result);
 }
@@ -239,12 +239,12 @@ _test_collection_op_query_or_find_command (test_collection_find_t *test_data,
       abort ();
    }
 
-   ASSERT (match_json (&actual_result,
-                       false /* is_command */,
-                       test_data->filename,
-                       test_data->lineno,
-                       test_data->funcname,
-                       test_data->expected_result));
+   assert_json_match (&actual_result,
+		      false /* is_command */,
+		      test_data->filename,
+		      test_data->lineno,
+		      test_data->funcname,
+		      test_data->expected_result);
 
    bson_destroy (&actual_result);
    request_destroy (request);

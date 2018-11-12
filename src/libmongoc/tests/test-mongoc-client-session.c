@@ -54,7 +54,7 @@ test_session_no_crypto (void *ctx)
 
 #define ASSERT_SESSIONS_MATCH(_lsid_a, _lsid_b)               \
    do {                                                       \
-      BSON_ASSERT (match_bson ((_lsid_a), (_lsid_b), false)); \
+      assert_bson_match ((_lsid_a), (_lsid_b), false);        \
    } while (0)
 
 
@@ -65,7 +65,7 @@ test_session_no_crypto (void *ctx)
       match_ctx_t _ctx = {0};                                           \
       _ctx.errmsg = errmsg;                                             \
       _ctx.errmsg_len = sizeof (errmsg);                                \
-      BSON_ASSERT (!match_bson_with_ctx ((_lsid_a), (_lsid_b), &_ctx)); \
+      BSON_ASSERT (!assert_bson_match_with_ctx ((_lsid_a), (_lsid_b), &_ctx)); \
    } while (0)
 
 
@@ -675,9 +675,9 @@ _test_end_sessions (bool pooled)
    while (bson_iter_next (&iter)) {
       BSON_ASSERT (BSON_ITER_HOLDS_DOCUMENT (&iter));
       bson_iter_bson (&iter, &ended_lsid);
-      if (match_bson_with_ctx (&ended_lsid, &lsid1, &ctx)) {
+      if (assert_bson_match_with_ctx (&ended_lsid, &lsid1, &ctx)) {
          lsid1_ended = true;
-      } else if (match_bson_with_ctx (&ended_lsid, &lsid2, &ctx)) {
+      } else if (assert_bson_match_with_ctx (&ended_lsid, &lsid2, &ctx)) {
          lsid2_ended = true;
       }
    }
@@ -781,11 +781,11 @@ _test_advance_cluster_time (mongoc_client_session_t *cs,
    mongoc_client_session_advance_cluster_time (cs, new_cluster_time);
 
    if (should_advance) {
-      BSON_ASSERT (match_bson (
-         mongoc_client_session_get_cluster_time (cs), new_cluster_time, false));
+      assert_bson_match (
+         mongoc_client_session_get_cluster_time (cs), new_cluster_time, false);
    } else {
-      BSON_ASSERT (match_bson (
-         mongoc_client_session_get_cluster_time (cs), old_cluster_time, false));
+      assert_bson_match (
+         mongoc_client_session_get_cluster_time (cs), old_cluster_time, false);
    }
 
    bson_destroy (old_cluster_time);
@@ -956,31 +956,16 @@ started (const mongoc_apm_command_started_t *event)
       client_session_lsid = &test->cs->server_session->lsid;
 
       if (test->expect_explicit_lsid) {
-         if (!match_bson_with_ctx (&lsid, client_session_lsid, &ctx)) {
-            fprintf (stderr,
-                     "command %s should have used client session's lsid\n",
-                     cmd_name);
-            abort ();
-         }
+         assert_bson_match_with_ctx (&lsid, client_session_lsid, &ctx);
       } else {
-         if (match_bson_with_ctx (&lsid, client_session_lsid, &ctx)) {
-            fprintf (stderr,
-                     "command %s should not have used client session's lsid\n",
-                     cmd_name);
-            abort ();
-         }
+         assert_bson_match_with_ctx (&lsid, client_session_lsid, &ctx);
       }
 
       if (bson_empty (&test->sent_lsid)) {
          bson_destroy (&test->sent_lsid);
          bson_copy_to (&lsid, &test->sent_lsid);
       } else {
-         if (!match_bson_with_ctx (&lsid, &test->sent_lsid, &ctx)) {
-            fprintf (stderr,
-                     "command %s used different lsid than previous command\n",
-                     cmd_name);
-            abort ();
-         }
+         assert_bson_match_with_ctx (&lsid, &test->sent_lsid, &ctx);
       }
    } else {
       /* unacknowledged commands should never include lsid */
@@ -1152,7 +1137,8 @@ check_session_returned (session_test_t *test, const bson_t *lsid)
    found = false;
    CDL_FOREACH (test->session_client->topology->session_pool, ss)
    {
-      if (match_bson_with_ctx (&ss->lsid, lsid, &ctx)) {
+      // TODO
+      if (assert_bson_match_with_ctx (&ss->lsid, lsid, &ctx)) {
          found = true;
          break;
       }

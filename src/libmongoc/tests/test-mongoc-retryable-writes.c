@@ -167,7 +167,7 @@ test_command_with_opts (void *ctx)
                     error);
 
    bson_lookup_doc (&reply, "value", &reply_result);
-   ASSERT (match_bson (&reply_result, tmp_bson ("{'_id': 1, 'x': 2}"), false));
+   assert_bson_match (&reply_result, tmp_bson ("{'_id': 1, 'x': 2}"), false);
 
    deactivate_fail_points (client, server_id);
 
