@@ -87,12 +87,6 @@ typedef enum {
 } mongoc_op_msg_flags_t;
 
 static mongoc_server_stream_t *
-mongoc_cluster_fetch_stream_single (mongoc_cluster_t *cluster,
-                                    uint32_t server_id,
-                                    bool reconnect_ok,
-                                    bson_error_t *error);
-
-static mongoc_server_stream_t *
 mongoc_cluster_fetch_stream_pooled (mongoc_cluster_t *cluster,
                                     uint32_t server_id,
                                     bool reconnect_ok,
@@ -1493,6 +1487,47 @@ _mongoc_cluster_auth_node (
    RETURN (ret);
 }
 
+static bool
+_mongoc_cluster_disconnect_node_in_set (uint32_t id, void *item, void *ctx)
+{
+   mongoc_cluster_t *cluster = (mongoc_cluster_t *) ctx;
+
+   mongoc_cluster_disconnect_node (cluster, id, false, NULL);
+
+   return true;
+}
+
+/*
+ *--------------------------------------------------------------------------
+ *
+ * mongoc_cluster_disconnect --
+ *
+ *       Disconnects all nodes in this cluster.
+ *
+ * Returns:
+ *       None.
+ *
+ * Side effects:
+ *       Clears the cluster's set of nodes and frees them if pooled.
+ *
+ *--------------------------------------------------------------------------
+ */
+
+void
+mongoc_cluster_disconnect (mongoc_cluster_t *cluster)
+{
+   // TODO
+   mongoc_topology_t *topology;
+
+   topology = cluster->client->topology;
+   /* in the single-threaded use case we share topology's streams */
+   if (topology->single_threaded) {
+      mongoc_topology_scanner_disconnect (topology->scanner);
+   } else {
+      mongoc_set_for_each_with_id (
+         cluster->nodes, _mongoc_cluster_disconnect_node_in_set, cluster);
+   }
+}
 
 /*
  *--------------------------------------------------------------------------
@@ -1835,7 +1870,7 @@ mongoc_cluster_stream_for_server (mongoc_cluster_t *cluster,
 }
 
 
-static mongoc_server_stream_t *
+mongoc_server_stream_t *
 mongoc_cluster_fetch_stream_single (mongoc_cluster_t *cluster,
                                     uint32_t server_id,
                                     bool reconnect_ok,
