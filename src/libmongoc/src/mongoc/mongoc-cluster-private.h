@@ -79,6 +79,9 @@ void
 mongoc_cluster_destroy (mongoc_cluster_t *cluster);
 
 void
+mongoc_cluster_disconnect (mongoc_cluster_t *cluster);
+
+void
 mongoc_cluster_disconnect_node (mongoc_cluster_t *cluster,
                                 uint32_t id,
                                 bool invalidate,
@@ -133,6 +136,11 @@ mongoc_cluster_stream_for_server (mongoc_cluster_t *cluster,
                                   const mongoc_client_session_t *cs,
                                   bson_t *reply,
                                   bson_error_t *error);
+mongoc_server_stream_t *
+mongoc_cluster_fetch_stream_single (mongoc_cluster_t *cluster,
+                                    uint32_t server_id,
+                                    bool reconnect_ok,
+                                    bson_error_t *error);
 
 bool
 mongoc_cluster_run_command_monitored (mongoc_cluster_t *cluster,

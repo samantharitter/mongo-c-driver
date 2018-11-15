@@ -2809,6 +2809,30 @@ _mongoc_client_end_sessions (mongoc_client_t *client)
    }
 }
 
+static bool
+_mongoc_client_reset_push_server_session (void *item, void *ctx)
+{
+   mongoc_client_session_t *session = (mongoc_client_session_t *) item;
+   _mongoc_client_push_server_session (session->client,
+                                       session->server_session);
+   return true;
+}
+
+void
+mongoc_client_reset (mongoc_client_t *client)
+{
+   BSON_ASSERT (client);
+
+   client->generation++;
+
+   mongoc_set_for_each (
+      client->client_sessions, _mongoc_client_reset_push_server_session, NULL);
+   mongoc_set_destroy (client->client_sessions);
+   client->client_sessions = mongoc_set_new (8, NULL, NULL);
+
+   mongoc_cluster_disconnect (&(client->cluster));
+}
+
 mongoc_change_stream_t *
 mongoc_client_watch (mongoc_client_t *client,
                      const bson_t *pipeline,
