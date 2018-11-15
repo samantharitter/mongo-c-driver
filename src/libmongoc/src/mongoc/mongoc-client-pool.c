@@ -458,6 +458,8 @@ mongoc_client_pool_reset (mongoc_client_pool_t *pool)
 {
    bson_mutex_lock (&(pool->mutex));
 
+   mongoc_topology_scanner_disconnect (pool->topology->scanner);
+
    pool->generation++;
    _mongoc_queue_for_each (
       &(pool->queue), _mongoc_client_pool_reset_client, pool);

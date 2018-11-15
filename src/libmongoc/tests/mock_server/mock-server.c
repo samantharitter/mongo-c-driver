@@ -464,13 +464,13 @@ mock_server_remove_autoresponder (mock_server_t *server, int id)
    handles = (autoresponder_handle_t *) server->autoresponders.data;
    for (i = 0; i < server->autoresponders.len; i++) {
       if (handles[i].id == id) {
+	 autoresponder_handle_destroy (&handles[i]);
+
          /* left-shift everyone after */
          server->autoresponders.len--;
          for (; i < server->autoresponders.len; i++) {
             handles[i] = handles[i + 1];
          }
-
-         autoresponder_handle_destroy (handles);
 
          break;
       }

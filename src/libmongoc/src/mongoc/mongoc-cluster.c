@@ -1516,7 +1516,6 @@ _mongoc_cluster_disconnect_node_in_set (uint32_t id, void *item, void *ctx)
 void
 mongoc_cluster_disconnect (mongoc_cluster_t *cluster)
 {
-   // TODO
    mongoc_topology_t *topology;
 
    topology = cluster->client->topology;

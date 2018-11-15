@@ -2822,8 +2822,9 @@ void
 mongoc_client_reset (mongoc_client_t *client)
 {
    BSON_ASSERT (client);
-
+   BSON_ASSERT (client->topology->single_threaded);
    _mongoc_client_reset (client);
+   mongoc_cluster_disconnect (&(client->cluster));
 }
 
 void
@@ -2837,8 +2838,6 @@ _mongoc_client_reset (mongoc_client_t *client)
       client->client_sessions, _mongoc_client_reset_push_server_session, NULL);
    mongoc_set_destroy (client->client_sessions);
    client->client_sessions = mongoc_set_new (8, NULL, NULL);
-
-   mongoc_cluster_disconnect (&(client->cluster));
 }
 
 mongoc_change_stream_t *
