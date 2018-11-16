@@ -3400,11 +3400,11 @@ test_client_reset_sessions (void *ctx)
    mongoc_client_t *client;
    mongoc_client_session_t *session;
    mongoc_client_session_t *session_lookup;
-   mongoc_client_session_t *session_same_id;
-   mongoc_server_session_t *ss;
    future_t *future;
    request_t *request;
+   bson_t opts = BSON_INITIALIZER;
    uint32_t csid;
+   bson_t lsid;
 
    server = mock_mongos_new (WIRE_VERSION_OP_MSG);
    mock_server_run (server);
@@ -3435,23 +3435,17 @@ test_client_reset_sessions (void *ctx)
 
    ASSERT (future_get_bool (future));
 
-   /* Ensure new session with recycled id is safe from old session influencing
-    * it */
-   ss = _mongoc_client_pop_server_session (client, &error);
-   ASSERT (ss);
-   session_same_id = _mongoc_client_session_new (client, ss, NULL, csid);
-   ASSERT (session_same_id);
-   ASSERT (session_same_id->client_generation == client->generation);
-   mongoc_set_add (client->client_sessions, csid, session_same_id);
+   future_destroy (future);
 
-   ASSERT (
-      _mongoc_client_lookup_session (client, csid, &session_lookup, &error));
-   mongoc_client_session_destroy (session);
-   ASSERT (
-      _mongoc_client_lookup_session (client, csid, &session_lookup, &error));
+   /* Ensure that a session left over from before the reset call cannot
+      be used for any operations. */
+   bson_copy_to (mongoc_client_session_get_lsid (session, &lsid));
+   res = (mongoc_client_session_append (session, opts, &error));
+   ASSERT_OR_PRINT (res, error);
+   future = future_client_command_with_opts (
+      client, "admin", tmp_bson ("{'ping': 1}"), NULL, &opts, NULL, &error);
 
-   /* Destroy remaining sessions without sending endSessions */
-   mongoc_client_reset (client);
+   ASSERT (future_get_bool (!future));
 
    request_destroy (request);
    future_destroy (future);

@@ -1130,10 +1130,15 @@ mongoc_client_session_destroy (mongoc_client_session_t *session)
          mongoc_client_session_abort_transaction (session, NULL);
       }
 
-      _mongoc_client_unregister_session (session->client, session);
       _mongoc_client_push_server_session (session->client,
                                           session->server_session);
+   } else {
+     /* If the client has been reset, destroy the server session instead of
+	pushing it back into the topology's pool. */
+     _mongoc_server_session_destroy (session->server_session);
    }
+
+   _mongoc_client_unregister_session (session->client, session);
 
    txn_opts_cleanup (&session->opts.default_txn_opts);
    txn_opts_cleanup (&session->txn.opts);
