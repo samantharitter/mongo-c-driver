@@ -1719,6 +1719,7 @@ _mongoc_client_command_with_opts (mongoc_client_t *client,
    const mongoc_read_prefs_t *prefs = COALESCE (user_prefs, default_prefs);
    mongoc_server_stream_t *server_stream = NULL;
    mongoc_cluster_t *cluster;
+   mongoc_client_session_t *session_lookup;
    mongoc_client_session_t *cs;
    bson_t reply_local;
    bson_t *reply_ptr;
@@ -2690,7 +2691,8 @@ _mongoc_client_pop_server_session (mongoc_client_t *client, bson_error_t *error)
  *       command.
  *
  * Returns:
- *       True on success, false on error and @error is set.
+ *       True on success, false on error and @error is set. Will return false
+ *       if the session is from an outdated client generation.
  *
  * Side effects:
  *       None.
@@ -2807,6 +2809,29 @@ _mongoc_client_end_sessions (mongoc_client_t *client)
       bson_destroy (&cmd);
       mongoc_server_stream_cleanup (stream);
    }
+}
+
+void
+mongoc_client_reset (mongoc_client_t *client)
+{
+   BSON_ASSERT (client);
+
+   client->generation++;
+
+   /* Client sessions are owned and destroyed by the user, but we keep
+      local pointers to them for reference. On reset, clear our local
+      set without destroying the sessions or calling endSessions.
+      client_sessions has no dtor, so it won't destroy its items.
+
+      Destroying the local cache of client sessions here ensures they
+      cannot be used by future operations--lookup for them will fail. */
+   mongoc_set_destroy (client->client_sessions);
+   client->client_sessions = mongoc_set_new (8, NULL, NULL);
+
+   /* Server sessions are owned by us, so we clear the pool on reset. */
+   _mongoc_topology_clear_session_pool (client->topology);
+
+   mongoc_cluster_disconnect (&(client->cluster));
 }
 
 mongoc_change_stream_t *
