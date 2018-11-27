@@ -3481,6 +3481,7 @@ test_client_reset_cursors (void)
    /* Ensure that cursors with an old client generation don't send killCursors.
       This test should timeout and fail if the client does send killCursors. */
    cursor = mongoc_client_find_databases_with_opts (client, NULL);
+   ASSERT (cursor->cursor_id);
    mongoc_client_reset (client);
    mongoc_cursor_destroy (cursor);
 
@@ -3501,6 +3502,25 @@ test_client_reset_cursors (void)
    mongoc_client_destroy (client);
    mongoc_database_destroy (database);
    mock_server_destroy (server);
+}
+
+static bool
+mongoc_topology_scanner_is_disconnected (mongoc_topology_scanner_t *scanner)
+{
+   mongoc_topology_scanner_node_t *node;
+
+   BSON_ASSERT (scanner);
+   node = scanner->nodes;
+
+   while (node) {
+      if (node->stream) {
+         return false;
+      }
+
+      node = node->next;
+   }
+
+   return true;
 }
 
 static void

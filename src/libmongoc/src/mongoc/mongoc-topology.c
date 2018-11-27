@@ -405,7 +405,10 @@ mongoc_topology_destroy (mongoc_topology_t *topology)
    mongoc_topology_description_destroy (&topology->description);
    mongoc_topology_scanner_destroy (topology->scanner);
 
-   /* free sessions if we failed to run _mongoc_topology_end_sessions */
+   /* If we are single-threaded, the client will try to call
+      _mongoc_topology_end_sessions_cmd when it dies. This removes
+      sessions from the pool as it calls endSessions on them. In
+      case this does not succeed, we clear the pool again here. */
    _mongoc_topology_clear_session_pool (topology);
 
    mongoc_cond_destroy (&topology->cond_client);
@@ -1449,7 +1452,7 @@ _mongoc_topology_push_server_session (mongoc_topology_t *topology,
 /*
  *--------------------------------------------------------------------------
  *
- * _mongoc_topology_end_sessions --
+ * _mongoc_topology_end_sessions_cmd --
  *
  *       Internal function. End up to 10,000 server sessions. @cmd is an
  *       uninitialized document. Sessions are destroyed as their ids are

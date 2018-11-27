@@ -1719,7 +1719,6 @@ _mongoc_client_command_with_opts (mongoc_client_t *client,
    const mongoc_read_prefs_t *prefs = COALESCE (user_prefs, default_prefs);
    mongoc_server_stream_t *server_stream = NULL;
    mongoc_cluster_t *cluster;
-   mongoc_client_session_t *session_lookup;
    mongoc_client_session_t *cs;
    bson_t reply_local;
    bson_t *reply_ptr;
@@ -2692,7 +2691,8 @@ _mongoc_client_pop_server_session (mongoc_client_t *client, bson_error_t *error)
  *
  * Returns:
  *       True on success, false on error and @error is set. Will return false
- *       if the session is from an outdated client generation.
+ *       if the session is from an outdated client generation, a holdover
+ *       from before a call to mongoc_client_reset.
  *
  * Side effects:
  *       None.

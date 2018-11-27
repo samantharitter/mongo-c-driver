@@ -87,6 +87,12 @@ typedef enum {
 } mongoc_op_msg_flags_t;
 
 static mongoc_server_stream_t *
+mongoc_cluster_fetch_stream_single (mongoc_cluster_t *cluster,
+                                    uint32_t server_id,
+                                    bool reconnect_ok,
+                                    bson_error_t *error);
+
+static mongoc_server_stream_t *
 mongoc_cluster_fetch_stream_pooled (mongoc_cluster_t *cluster,
                                     uint32_t server_id,
                                     bool reconnect_ok,
@@ -1518,6 +1524,8 @@ mongoc_cluster_disconnect (mongoc_cluster_t *cluster)
 {
    mongoc_topology_t *topology;
 
+   BSON_ASSERT (cluster);
+
    topology = cluster->client->topology;
    /* in the single-threaded use case we share topology's streams */
    if (topology->single_threaded) {
@@ -1869,7 +1877,7 @@ mongoc_cluster_stream_for_server (mongoc_cluster_t *cluster,
 }
 
 
-mongoc_server_stream_t *
+static mongoc_server_stream_t *
 mongoc_cluster_fetch_stream_single (mongoc_cluster_t *cluster,
                                     uint32_t server_id,
                                     bool reconnect_ok,

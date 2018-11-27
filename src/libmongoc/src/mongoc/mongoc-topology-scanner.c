@@ -342,37 +342,6 @@ mongoc_topology_scanner_disconnect (mongoc_topology_scanner_t *scanner)
    }
 }
 
-/*
- *--------------------------------------------------------------------------
- *
- * mongoc_topology_scanner_is_disconnected --
- *
- *       For testing only.
- *
- * Returns:
- *       True if all nodes in the scanner are disconnected.
- *
- *--------------------------------------------------------------------------
- */
-bool
-mongoc_topology_scanner_is_disconnected (mongoc_topology_scanner_t *scanner)
-{
-   mongoc_topology_scanner_node_t *node;
-
-   BSON_ASSERT (scanner);
-   node = scanner->nodes;
-
-   while (node) {
-      if (node->stream) {
-         return false;
-      }
-
-      node = node->next;
-   }
-
-   return true;
-}
-
 void
 mongoc_topology_scanner_node_retire (mongoc_topology_scanner_node_t *node)
 {
