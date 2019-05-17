@@ -5,49 +5,32 @@
 #include "mongoc/mongoc-client.h"
 #include "mongoc/mongoc-collection.h"
 
-typedef bool (*_workload_fn_t) (mongoc_client_t *client, void *ctx);
-
-static void
-run_scenario (_workload_fn_t workload,
-	      void *workload_ctx,
-	      const char *python_path,
-	      const char *config_path)
+static pid_t
+launch_python_script (const char *python_path,
+		      char *config_path,
+		      int link[],
+		      char *argv[])
 {
-   int link[2];
+   int status;
    pid_t pid;
 
    /* Pipe the python script's output here */
    BSON_ASSERT (pipe(link) != -1);
-   
-   pid = fork();
 
-   /* Failed to fork */
+   pid = fork();
    BSON_ASSERT (pid != -1);
 
    if (pid > 0) {
-      int buf_max = 4096;
-      char buf[buf_max];
-      int status;
-      int bytes_read;
+      /* In the parent, read piped info from the child */
+      close (link[1]);
 
-      /* In the parent, run the workload */
-
-      /* Read piped input from the child */
-      close(link[1]);
-
-      while (waitpid (pid, &status, WNOHANG) == 0) {
-	 sleep(1);
-
-	 bytes_read = read(link[0], buf, buf_max);
-	 if (bytes_read > 0) {
-	    fprintf(stderr, "%.*s\n", bytes_read, buf);
-	 } if (bytes_read == -1) {
-	    fprintf(stderr, "Error :(\n");
-	 } else {
-	 }
+      if (waitpid (pid, &status, WNOHANG) != 0) {
+	 fprintf (stderr, "Error: child exited early with status %d\n", status);
+	 BSON_ASSERT (false);
       }
 
-      fprintf (stderr, "child exited, status %d\n", status);
+      return pid;
+
    } else {
       /* In the child, send our output back to the parent */
       while ((dup2(link[1], STDOUT_FILENO) == -1) &&
@@ -57,14 +40,108 @@ run_scenario (_workload_fn_t workload,
       close (link[0]);
       close (link[1]);
 
-      /* run the scenario */
-      execl (python_path, "topology", config_path, "--sleep", "1", NULL);
+      execv (python_path, argv);
 
-      /* exec should never return */
       fprintf (stderr, "Error: exec failed\n");
       BSON_ASSERT (false);
    }
 
+}
+
+static bool
+monitor_script (pid_t pid, int link[], bool forever)
+{
+   int buf_max = 4096;
+   char buf[buf_max];
+   pid_t wait_res;
+   int status;
+   int bytes_read;
+
+   /* To "continuously" print output, each time we
+      check the process status, read some input */
+   do {
+      fprintf (stderr, "monitoring\n");
+      bytes_read = read(link[0], buf, buf_max);
+      if (bytes_read > 0) {
+	 fprintf(stderr, "%.*s\n", bytes_read, buf);
+      }
+
+      wait_res = waitpid (pid, &status, WNOHANG);
+      BSON_ASSERT (wait_res != -1);
+      if (wait_res > 0) {
+	 if (WIFEXITED(status)) {
+	    fprintf (stderr, "child exited, status %d\n", status);
+	    return false;
+	 }
+      }
+      fprintf (stderr, "child still running\n");
+   } while (forever);
+
+   return true;
+}
+
+
+static bool
+script_still_running (pid_t pid, int link[])
+{
+   return monitor_script (pid, link, false);
+}
+
+
+static void
+wait_for_script_exit (pid_t pid, int link[])
+{
+   fprintf (stderr, "waiting for script to exit");
+   monitor_script (pid, link, true);
+}
+
+
+typedef bool (*_workload_fn_t) (mongoc_client_t *client, void *ctx);
+
+static void
+run_scenario (_workload_fn_t workload,
+	      void *workload_ctx,
+	      const char *python_path,
+	      char *config_path)
+{
+   mongoc_client_t *client;
+   int link[2];
+   pid_t pid;
+   char *start_args[] = {"a", "start", config_path};
+   char *scenario_args[] = {"a", "--sleep", "1", "scenario", config_path};
+   char *stop_args[] = {"a", "stop", config_path};
+
+   /* First, run script with the "start" command */
+   pid = launch_python_script (python_path,
+			       config_path,
+			       link,
+			       start_args);
+   wait_for_script_exit (pid, link);
+
+   /* TODO: dynamically create URI based on config file. */
+   client = mongoc_client_new ("mongodb://localhost:5000,localhost:5001,localhost:5002/replicaSet=rs1");
+   BSON_ASSERT (client);
+
+   /* Next, run script with the "scenario" command. */
+   pid = launch_python_script (python_path,
+			       config_path,
+			       link,
+			       scenario_args);
+
+   /* While the scenario is running, run our workload. */
+   while (script_still_running (pid, link)) {
+      BSON_ASSERT (workload (client, workload_ctx));
+   }
+
+   /* After the scenario is done, run our workload again. */
+   BSON_ASSERT (workload (client, workload_ctx));
+
+   /* Shut down the agent and cluster. */
+   pid = launch_python_script (python_path,
+			       config_path,
+			       link,
+			       stop_args);
+   wait_for_script_exit (pid, link);
 }
 
 static void
