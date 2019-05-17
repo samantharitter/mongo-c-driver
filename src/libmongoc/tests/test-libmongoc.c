@@ -129,6 +129,8 @@ test_linux_distro_scanner_install (TestSuite *suite);
 extern void
 test_list_install (TestSuite *suite);
 extern void
+test_live_failover_install (TestSuite *suite);
+extern void
 test_log_install (TestSuite *suite);
 extern void
 test_matcher_install (TestSuite *suite);
@@ -2311,6 +2313,7 @@ main (int argc, char *argv[])
    test_handshake_install (&suite);
    test_linux_distro_scanner_install (&suite);
    test_list_install (&suite);
+   test_live_failover_install (&suite);
    test_log_install (&suite);
    test_matcher_install (&suite);
    test_queue_install (&suite);
