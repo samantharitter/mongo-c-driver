@@ -26,6 +26,10 @@
 #include "mongoc/mongoc-topology-private.h"
 #include "mongoc/mongoc-trace-private.h"
 
+#ifndef WIN32
+#include <signal.h>
+#endif
+
 #undef MONGOC_LOG_DOMAIN
 #define MONGOC_LOG_DOMAIN "monitor"
 
@@ -1019,6 +1023,10 @@ static BSON_THREAD_FUN (_server_monitor_thread, server_monitor_void)
    mongoc_server_monitor_t *server_monitor;
    mongoc_server_description_t *description;
    mongoc_server_description_t *previous_description;
+#ifndef _WIN32
+   /* Ignore SIGPIPE */
+   signal(SIGPIPE, SIG_IGN);
+#endif
 
    server_monitor = (mongoc_server_monitor_t *) server_monitor_void;
    description =
@@ -1081,6 +1089,7 @@ static BSON_THREAD_FUN (_server_monitor_thread, server_monitor_void)
    bson_mutex_unlock (&server_monitor->shared.mutex);
    mongoc_server_description_destroy (previous_description);
    mongoc_server_description_destroy (description);
+   
    BSON_THREAD_RETURN;
 }
 
@@ -1121,6 +1130,10 @@ _server_monitor_ping_server (mongoc_server_monitor_t *server_monitor,
 static BSON_THREAD_FUN (_server_monitor_rtt_thread, server_monitor_void)
 {
    mongoc_server_monitor_t *server_monitor;
+#ifndef _WIN32
+   /* Ignore SIGPIPE */
+   signal(SIGPIPE, SIG_IGN);
+#endif
 
    server_monitor = (mongoc_server_monitor_t *) server_monitor_void;
 
@@ -1157,6 +1170,7 @@ static BSON_THREAD_FUN (_server_monitor_rtt_thread, server_monitor_void)
    bson_mutex_lock (&server_monitor->shared.mutex);
    server_monitor->shared.state = MONGOC_THREAD_JOINABLE;
    bson_mutex_unlock (&server_monitor->shared.mutex);
+
    BSON_THREAD_RETURN;
 }
 
@@ -1167,8 +1181,11 @@ mongoc_server_monitor_run (mongoc_server_monitor_t *server_monitor)
    if (server_monitor->shared.state == MONGOC_THREAD_OFF) {
       server_monitor->is_rtt = false;
       server_monitor->shared.state = MONGOC_THREAD_RUNNING;
+      // SAM: we don't check that this call succeeds, should we?
       COMMON_PREFIX (thread_create)
       (&server_monitor->thread, _server_monitor_thread, server_monitor);
+      // SAM: the _server_monitor_thread method wants us to start off
+      // in MONGOC_THREAD_OFF, but we set it to RUNNING first. Mistake?
    }
    bson_mutex_unlock (&server_monitor->shared.mutex);
 }
@@ -1234,6 +1251,12 @@ mongoc_server_monitor_wait_for_shutdown (
       return;
    }
 
+   // SAM: I don't think we could ever get here if request_shutdown already joined.
+
+   // SAM: seems like we should join the thread in the lock, no? And also
+   // seems like we should wait until the state is MONGOC_THREAD_JOINABLE,
+   // which it should be shortly after request_shutdown.
+   
    /* Shutdown requested, but thread is not yet off. Wait. */
    COMMON_PREFIX (thread_join) (server_monitor->thread);
    bson_mutex_lock (&server_monitor->shared.mutex);
